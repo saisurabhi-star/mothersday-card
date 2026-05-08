@@ -257,8 +257,11 @@ app.post('/api/admin/reseed', requireAdmin, async (req, res) => {
     await query('DELETE FROM answers');
     await query('DELETE FROM cards');
     await query('DELETE FROM questions');
-    await query('DELETE FROM moms');
     await query('DELETE FROM users');
+    // votes and submissions (voting app) reference moms — clear them first
+    try { await query('DELETE FROM votes'); } catch (_) {}
+    try { await query('DELETE FROM submissions'); } catch (_) {}
+    await query('DELETE FROM moms');
     await seedDefaults();
     res.json({ success: true, message: 'Database cleared and reseeded with defaults' });
   } catch (e) { res.status(500).json({ error: e.message }); }
