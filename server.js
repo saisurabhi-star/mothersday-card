@@ -23,6 +23,53 @@ async function query(sql, params = []) {
   }
 }
 
+async function seedDefaults() {
+  const questions = [
+    ['If Mom had an age based on how she acts, what would it be and why?', 'funny', 'e.g. She acts 25 when music comes on.', 0],
+    ['What phrase does Mom say so much you hear it in your sleep?', 'funny', 'e.g. Because I said so!', 1],
+    ['What would Mom spend $1000 on if she had to spend it TODAY?', 'funny', 'e.g. Shoes. Definitely shoes.', 2],
+    ["What is Mom's go-to excuse to get out of something?", 'funny', "e.g. She says she's tired", 3],
+    ['What does Mom care about most?', 'sweet', "e.g. That we're all happy and healthy", 4],
+    ["What do you think mom hope's for you most?", 'sweet', 'e.g. She wants me to be a doctor lol', 5],
+    ['What is something Mom does that you hope to do someday?', 'sweet', 'e.g. The way she always shows up for people', 6],
+    ["What is Mom's guilty pleasure?", 'wildcard', 'e.g. Watching Reels', 7],
+    ["What is something Mom tries her best at, even if she knows she is not good at it?", 'wildcard', 'e.g. Parallel parking', 8],
+    ['What would Mom do with 24 hours completely alone?', 'wildcard', 'e.g. Sleep the entire time', 9],
+  ];
+  const moms = [
+    "Aasvi's Mom", "Jaasvi & Twisha's Mom", "Navya and Geetu's Mom",
+    "Nirav and Neeva's Mom", "Ruhi and Rihaan's Mom", "Shloka and Veda's Mom", "Yuvi and Yashi's Mom"
+  ];
+  const users = [
+    'Aasvi', 'Arun', 'Geetu', 'Jaasvi', 'JP', 'Laxman', 'Navya', 'Neeva',
+    'Nirav', 'Pramod', 'Rihaan', 'RK', 'Ruhi', 'Shashank', 'Shloka', 'Twisha', 'Veda', 'Vinay'
+  ];
+
+  const qCount = await query('SELECT COUNT(*) as c FROM questions');
+  if (parseInt(qCount.rows[0].c) === 0) {
+    for (const [text, tag, placeholder, sort_order] of questions) {
+      await query('INSERT INTO questions (text,tag,placeholder,sort_order) VALUES ($1,$2,$3,$4)',
+        [text, tag, placeholder, sort_order]);
+    }
+  }
+
+  const momCount = await query('SELECT COUNT(*) as c FROM moms');
+  if (parseInt(momCount.rows[0].c) === 0) {
+    for (let i = 0; i < moms.length; i++) {
+      await query('INSERT INTO moms (name,sort_order) VALUES ($1,$2)', [moms[i], i]);
+    }
+  }
+
+  const userCount = await query('SELECT COUNT(*) as c FROM users');
+  if (parseInt(userCount.rows[0].c) === 0) {
+    for (let i = 0; i < users.length; i++) {
+      await query('INSERT INTO users (name,sort_order) VALUES ($1,$2)', [users[i], i]);
+    }
+  }
+
+  await query(`INSERT INTO settings (key,value) VALUES ('submissions_open','true') ON CONFLICT (key) DO NOTHING`);
+}
+
 async function initDb() {
   await query(`
     CREATE TABLE IF NOT EXISTS questions (
@@ -60,47 +107,7 @@ async function initDb() {
       value TEXT NOT NULL
     );
   `);
-
-  const qCount = await query('SELECT COUNT(*) as c FROM questions');
-  if (parseInt(qCount.rows[0].c) === 0) {
-    const questions = [
-      ['How old does Mom actually act?',                                       'funny',    'e.g. She acts like a teenager honestly…',      0],
-      ['What phrase does Mom say so much you hear it in your sleep?',          'funny',    'e.g. Because I said so!',                      1],
-      ['What would Mom spend $500 on if she had to spend it TODAY?',           'funny',    'e.g. Shoes. Definitely shoes.',                2],
-      ["What is Mom's go-to excuse to get out of something?",                  'funny',    "e.g. She says she's tired",                    3],
-      ['What does Mom worry about most?',                                      'sweet',    "e.g. That we're all happy and healthy",        4],
-      ["What is Mom's biggest dream for you?",                                 'sweet',    'e.g. She wants me to be a doctor lol',         5],
-      ['What is something Mom does that you hope to do someday?',              'sweet',    'e.g. The way she always shows up for people',  6],
-      ["What is Mom's guilty pleasure?",                                       'wildcard', 'e.g. Reality TV at midnight',                  7],
-      ["What is Mom secretly bad at — but tries anyway?",                      'wildcard', 'e.g. Parallel parking',                        8],
-      ['What would Mom do with 24 hours completely alone?',                    'wildcard', 'e.g. Sleep the entire time',                   9],
-    ];
-    for (const [text, tag, placeholder, sort_order] of questions) {
-      await query(
-        'INSERT INTO questions (text, tag, placeholder, sort_order) VALUES ($1,$2,$3,$4)',
-        [text, tag, placeholder, sort_order]
-      );
-    }
-  }
-
-  const momCount = await query('SELECT COUNT(*) as c FROM moms');
-  if (parseInt(momCount.rows[0].c) === 0) {
-    const moms = ["Aasvi's Mom","Jaasvi's Mom","Navya's Mom","Neeva's Mom","Ruhi's Mom","Shloka's Mom","Yuvi's Mom"];
-    for (let i = 0; i < moms.length; i++) {
-      await query('INSERT INTO moms (name, sort_order) VALUES ($1,$2)', [moms[i], i]);
-    }
-  }
-
-  const userCount = await query('SELECT COUNT(*) as c FROM users');
-  if (parseInt(userCount.rows[0].c) === 0) {
-    const users = ['Aasvi','Arun','Geetu','Jaasvi','JP','Laxman','Navya','Neeva',
-                   'Nirav','Pramod','Rihaan','RK','Ruhi','Shashank','Shloka','Twisha','Veda','Vinay'];
-    for (let i = 0; i < users.length; i++) {
-      await query('INSERT INTO users (name, sort_order) VALUES ($1,$2)', [users[i], i]);
-    }
-  }
-
-  await query(`INSERT INTO settings (key,value) VALUES ('submissions_open','true') ON CONFLICT (key) DO NOTHING`);
+  await seedDefaults();
   console.log('✅ Database initialized');
 }
 
@@ -121,9 +128,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/config', async (req, res) => {
   try {
     const questions = await query('SELECT * FROM questions ORDER BY sort_order, id');
-    const moms     = await query('SELECT * FROM moms ORDER BY sort_order, name');
-    const users    = await query('SELECT * FROM users ORDER BY sort_order, name');
-    const open     = await getSetting('submissions_open');
+    const moms = await query('SELECT * FROM moms ORDER BY sort_order, name');
+    const users = await query('SELECT * FROM users ORDER BY sort_order, name');
+    const open = await getSetting('submissions_open');
     res.json({ questions: questions.rows, moms: moms.rows, users: users.rows, submissionsOpen: open === 'true' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -227,9 +234,9 @@ app.delete('/api/admin/cards/:id', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/pending', requireAdmin, async (req, res) => {
-  const users     = await query('SELECT * FROM users ORDER BY sort_order, name');
+  const users = await query('SELECT * FROM users ORDER BY sort_order, name');
   const submitted = await query('SELECT LOWER(respondent_name) as name FROM cards WHERE is_complete=true');
-  const names     = submitted.rows.map(r => r.name);
+  const names = submitted.rows.map(r => r.name);
   res.json(users.rows.filter(u => !names.includes(u.name.toLowerCase())));
 });
 
@@ -244,6 +251,19 @@ app.post('/api/admin/reset', requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// Wipe all seed tables and reload defaults — use when questions/moms/users need refreshing
+app.post('/api/admin/reseed', requireAdmin, async (req, res) => {
+  try {
+    await query('DELETE FROM answers');
+    await query('DELETE FROM cards');
+    await query('DELETE FROM questions');
+    await query('DELETE FROM moms');
+    await query('DELETE FROM users');
+    await seedDefaults();
+    res.json({ success: true, message: 'Database cleared and reseeded with defaults' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Questions CRUD
 app.get('/api/admin/questions', requireAdmin, async (req, res) => {
   const r = await query('SELECT * FROM questions ORDER BY sort_order, id');
@@ -253,14 +273,14 @@ app.post('/api/admin/questions', requireAdmin, async (req, res) => {
   const { text, tag, placeholder, sort_order } = req.body;
   const r = await query(
     'INSERT INTO questions (text,tag,placeholder,sort_order) VALUES ($1,$2,$3,$4) RETURNING *',
-    [text, tag||'funny', placeholder||'', sort_order||0]
+    [text, tag || 'funny', placeholder || '', sort_order || 0]
   );
   res.json(r.rows[0]);
 });
 app.put('/api/admin/questions/:id', requireAdmin, async (req, res) => {
   const { text, tag, placeholder, sort_order } = req.body;
   await query('UPDATE questions SET text=$1,tag=$2,placeholder=$3,sort_order=$4 WHERE id=$5',
-    [text, tag||'funny', placeholder||'', sort_order||0, req.params.id]);
+    [text, tag || 'funny', placeholder || '', sort_order || 0, req.params.id]);
   res.json({ success: true });
 });
 app.delete('/api/admin/questions/:id', requireAdmin, async (req, res) => {

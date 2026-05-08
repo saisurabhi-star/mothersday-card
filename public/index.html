@@ -944,7 +944,8 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
       </div>
       <div class="admin-card">
         <div class="admin-card-title">Danger Zone</div>
-        <button class="btn-danger-full" onclick="resetCards()">🗑️ Reset All Cards</button>
+        <button class="btn-danger-full" onclick="resetCards()">🗑️ Reset All Cards & Answers</button>
+        <button class="btn-danger-full" style="margin-top:8px;border-color:#d4a017;color:#9a6e00" onclick="reseedDatabase()">🔄 Clear &amp; Reload Default Questions / Moms / Users</button>
       </div>
     </div>
 
@@ -1597,6 +1598,20 @@ async function resetCards() {
   if (!confirm('Delete ALL cards and answers? This cannot be undone.')) return;
   await aFetch('/api/admin/reset', {method:'POST'});
   loadAdminData();
+}
+
+async function reseedDatabase() {
+  if (!confirm('This will DELETE all cards, answers, questions, moms, and users — then reload the defaults. Continue?')) return;
+  const res  = await aFetch('/api/admin/reseed', {method:'POST'});
+  const data = await res.json();
+  if (res.ok) {
+    alert('✅ Done! Default questions, moms, and users have been loaded.');
+    const configRes = await fetch('/api/config');
+    config = await configRes.json();
+    loadAdminData();
+  } else {
+    alert('Error: ' + (data.error || 'Unknown error'));
+  }
 }
 
 // ── TABS ──
