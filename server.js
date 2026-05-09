@@ -221,6 +221,27 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Public party read-aloud endpoint — available only when submissions are closed
+app.get('/api/party/:momId', async (req, res) => {
+  try {
+    const open = await getSetting('submissions_open');
+    if (open === 'true') return res.status(403).json({ error: 'Not available while submissions are open' });
+    const cards = await query(`
+      SELECT c.id, c.respondent_name, c.respondent_type
+      FROM cards c WHERE c.mom_id=$1 AND c.is_complete=true ORDER BY c.submitted_at ASC
+    `, [req.params.momId]);
+    const result = await Promise.all(cards.rows.map(async card => {
+      const ans = await query(`
+        SELECT a.answer_text, q.id as question_id, q.text as question_text, q.mom_text, q.tag, q.sort_order
+        FROM answers a JOIN questions q ON a.question_id=q.id
+        WHERE a.card_id=$1 ORDER BY q.sort_order
+      `, [card.id]);
+      return { ...card, answers: ans.rows };
+    }));
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/admin/verify', (req, res) => {
   req.body.pin === ADMIN_PIN
     ? res.json({ success: true })

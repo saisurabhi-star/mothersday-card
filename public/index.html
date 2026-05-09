@@ -201,9 +201,26 @@
     /* ── CLOSED ── */
     #screen-closed {
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       text-align: center;
-      padding: 40px 24px;
+      padding: 40px 24px 60px;
+    }
+    .closed-mom-pill {
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 50px;
+      padding: 12px 22px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--charcoal);
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .closed-mom-pill:hover, .closed-mom-pill.active {
+      border-color: var(--rose);
+      background: #fff0f4;
+      color: var(--deep-rose);
     }
 
     /* ── QUESTION ── */
@@ -1123,9 +1140,43 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      padding: 32px 28px;
+      justify-content: flex-start;
+      padding: 24px 24px 16px;
       cursor: pointer;
+      overflow-y: auto;
+    }
+    .ra-answers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .ra-kid-answer {
+      background: rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .ra-kid-name {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 4px;
+    }
+    .ra-kid-text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 17px;
+      font-weight: 500;
+      color: white;
+      line-height: 1.4;
+    }
+    .ra-mom-section {
+      background: rgba(212,117,138,0.18);
+      border: 1px solid rgba(212,117,138,0.35);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
     }
 
     .ra-tag {
@@ -1474,10 +1525,10 @@
 
   <!-- ── CLOSED SCREEN ── -->
   <div id="screen-closed" class="screen">
-    <div style="font-size:56px;margin-bottom:16px">🔒</div>
-    <div class="hero-title" style="font-size:30px;color:var(--charcoal)">Responses are Closed</div>
-    <div class="hero-sub" style="margin-top:8px">The organizer has closed submissions.<br>See Vinay if you have a
-      question.</div>
+    <div style="font-size:48px;margin-bottom:8px">🎉</div>
+    <div class="hero-title" style="font-size:30px">How Well Do They Know Mom?</div>
+    <div class="hero-sub" style="margin-top:6px;margin-bottom:28px">Select a mom to read everyone's answers</div>
+    <div id="closed-mom-pills" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:480px"></div>
   </div>
 
   <!-- ── QUESTION SCREEN ── -->
@@ -1717,13 +1768,10 @@
     let _byMomCards = [];
 
     // read-aloud state
-    let _raCards = [];
-    let _raCardIdx = 0;
+    let _raQuestions = []; // [{question_text, tag, kidAnswers:[{name,answer}], momAnswer}]
     let _raQIdx = 0;
     let _raMomName = '';
-    let _raMomCard = null;   // mom's own card for this mom
-    let _raMomMode = false;  // true when showing mom's answers
-    let _raMomQIdx = 0;
+    let _raMomDisplayName = '';
 
     function esc(s) {
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1751,7 +1799,13 @@
         const res = await fetch('/api/config');
         config = await res.json();
         populateDropdowns();
-        if (!config.submissionsOpen) { showScreen('closed'); return; }
+        if (!config.submissionsOpen) {
+          showScreen('closed');
+          document.getElementById('closed-mom-pills').innerHTML = config.moms.map(m =>
+            `<button class="closed-mom-pill" onclick="loadPublicReadAloud(${m.id})">${esc(momDisplayName(m))}</button>`
+          ).join('');
+          return;
+        }
         showScreen('entry');
       } catch (e) {
         showScreen('entry');
@@ -2258,15 +2312,71 @@
     }
 
     // ── READ ALOUD ──
+
+    // Build question-by-question structure from a list of cards
+    function buildRaQuestions(cards) {
+      const momCard = cards.find(c => c.respondent_type === 'mom') || null;
+      const kidCards = cards.filter(c => c.respondent_type !== 'mom');
+      const template = kidCards[0] || momCard;
+      if (!template) return [];
+
+      const questions = template.answers.map(a => ({
+        question_id: a.question_id,
+        question_text: a.question_text,
+        tag: a.tag,
+        kidAnswers: [],
+        momAnswer: null,
+      }));
+
+      kidCards.forEach(card => {
+        card.answers.forEach(a => {
+          const q = questions.find(q => q.question_id === a.question_id);
+          if (q) q.kidAnswers.push({ name: card.respondent_name, answer: a.answer_text });
+        });
+      });
+
+      if (momCard) {
+        momCard.answers.forEach(a => {
+          const q = questions.find(q => q.question_id === a.question_id);
+          if (q) q.momAnswer = a.answer_text;
+        });
+      }
+
+      return questions;
+    }
+
+    // Admin: launch from By Mom tab
     function startReadAloud(momId) {
       const mom = _adminMoms.find(m => m.id === momId);
       _raMomName = mom ? mom.name : 'Mom';
-      _raMomCard = _byMomCards.find(c => c.respondent_type === 'mom') || null;
-      _raCards = _byMomCards.filter(c => c.respondent_type !== 'mom');
-      _raCardIdx = 0;
+      _raMomDisplayName = momDisplayName(mom);
+      _raQuestions = buildRaQuestions(_byMomCards);
       _raQIdx = 0;
-      _raMomMode = false;
-      _raMomQIdx = 0;
+      if (!_raQuestions.length) { alert('No responses yet.'); return; }
+      renderReadAloud();
+      document.getElementById('ra-overlay').style.display = 'flex';
+    }
+
+    // Public: launch from closed screen
+    async function loadPublicReadAloud(momId) {
+      document.querySelectorAll('.closed-mom-pill').forEach(p => p.classList.remove('active'));
+      const btn = event.target;
+      btn.classList.add('active');
+      btn.textContent = '⏳ Loading…';
+
+      const res = await fetch('/api/party/' + momId);
+      btn.textContent = btn.textContent.replace('⏳ Loading…', momDisplayName(config.moms.find(m => m.id === momId)));
+      if (!res.ok) { alert('Could not load responses.'); return; }
+      const cards = await res.json();
+
+      if (!cards.length) { alert('No responses submitted for this mom yet.'); return; }
+
+      const mom = config.moms.find(m => m.id === momId);
+      _raMomName = mom ? mom.name : 'Mom';
+      _raMomDisplayName = momDisplayName(mom);
+      _raQuestions = buildRaQuestions(cards);
+      _raQIdx = 0;
+      if (!_raQuestions.length) { alert('No responses for this mom yet.'); return; }
       renderReadAloud();
       document.getElementById('ra-overlay').style.display = 'flex';
     }
@@ -2276,146 +2386,61 @@
     }
 
     function renderReadAloud() {
-      if (_raMomMode) { renderMomReadAloud(); return; }
-      const card = _raCards[_raCardIdx];
-      const ans = card.answers[_raQIdx];
+      const q = _raQuestions[_raQIdx];
       const body = document.getElementById('ra-body');
 
       document.getElementById('ra-who').innerHTML =
-        `<strong>${esc(card.respondent_name)}</strong>'s answers for <strong>${esc(_raMomName)}</strong>`;
+        `<strong>${esc(_raMomDisplayName)}</strong>`;
       document.getElementById('ra-q-counter').textContent =
-        `Q${_raQIdx + 1} of ${card.answers.length}`;
-      document.getElementById('ra-person-counter').textContent =
-        `Person ${_raCardIdx + 1} of ${_raCards.length}`;
+        `Q${_raQIdx + 1} of ${_raQuestions.length}`;
+      document.getElementById('ra-person-counter').textContent = '';
+
+      const kidAnswersHtml = q.kidAnswers.length ? `
+        <div class="ra-answers-list">
+          ${q.kidAnswers.map(ka => `
+            <div class="ra-kid-answer">
+              <div class="ra-kid-name">${esc(ka.name)}</div>
+              <div class="ra-kid-text">${esc(ka.answer)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div style="color:rgba(255,255,255,0.35);font-size:13px;margin-bottom:14px">No kid responses for this question.</div>';
+
+      const momAnswerHtml = q.momAnswer ? `
+        <div class="ra-mom-section">
+          <div class="ra-mom-label">🌸 MOM SAID</div>
+          <div class="ra-mom-answer">${esc(q.momAnswer)}</div>
+        </div>
+      ` : '';
 
       body.onclick = advanceReadAloud;
       body.innerHTML = `
-    <div class="ra-tag">
-      <span class="tag-badge ${ans.tag}">${tagEmoji(ans.tag)} ${tagLabel(ans.tag)}</span>
-    </div>
-    <div class="ra-question">${esc(ans.question_text)}</div>
-    <div class="ra-answer">${esc(ans.answer_text)}</div>
-    <div class="ra-tap-hint">TAP TO ADVANCE</div>
-  `;
+        <div class="ra-tag">
+          <span class="tag-badge ${q.tag}">${tagEmoji(q.tag)} ${tagLabel(q.tag)}</span>
+        </div>
+        <div class="ra-question">${esc(q.question_text)}</div>
+        ${kidAnswersHtml}
+        ${momAnswerHtml}
+        <div class="ra-tap-hint">TAP TO ADVANCE</div>
+      `;
     }
 
     function advanceReadAloud() {
-      if (_raMomMode) { advanceMomReadAloud(); return; }
-      const card = _raCards[_raCardIdx];
-      if (_raQIdx < card.answers.length - 1) {
+      if (_raQIdx < _raQuestions.length - 1) {
         _raQIdx++;
         renderReadAloud();
-        return;
-      }
-      if (_raCardIdx < _raCards.length - 1) {
-        showNextPersonPrompt();
-      } else {
-        showReadAloudEnd();
-      }
-    }
-
-    function showNextPersonPrompt() {
-      const nextCard = _raCards[_raCardIdx + 1];
-      const body = document.getElementById('ra-body');
-      body.onclick = null;
-      body.innerHTML = `
-    <div style="text-align:center;padding:20px 0">
-      <div style="font-size:48px;margin-bottom:12px">👏</div>
-      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:white;margin-bottom:8px">
-        That's all from ${esc(_raCards[_raCardIdx].respondent_name)}!
-      </div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:24px">
-        Next up: <strong style="color:white">${esc(nextCard.respondent_name)}</strong>
-      </div>
-      <button class="ra-next-person" onclick="goToNextPerson()">
-        Next Person →
-      </button>
-    </div>
-  `;
-      document.getElementById('ra-q-counter').textContent = '';
-      document.getElementById('ra-person-counter').textContent = `Person ${_raCardIdx + 1} of ${_raCards.length}`;
-    }
-
-    function goToNextPerson() {
-      _raCardIdx++;
-      _raQIdx = 0;
-      renderReadAloud();
-    }
-
-    function showReadAloudEnd() {
-      const body = document.getElementById('ra-body');
-      body.onclick = null;
-      if (_raMomCard) {
-        body.innerHTML = `
-      <div class="ra-end">
-        <div style="font-size:56px;margin-bottom:16px">🌸</div>
-        <div class="ra-end-title">Now let's hear from Mom!</div>
-        <div class="ra-end-sub">Everyone has answered. Time to see what ${esc(_raMomName)} said!</div>
-        <button class="ra-next-person" onclick="enterMomReadAloud()">
-          What did Mom say? →
-        </button>
-      </div>
-    `;
-      } else {
-        body.innerHTML = `
-      <div class="ra-end">
-        <div style="font-size:56px;margin-bottom:16px">🎉</div>
-        <div class="ra-end-title">That's everyone!</div>
-        <div class="ra-end-sub">All answers for ${esc(_raMomName)} have been read.</div>
-        <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
-      </div>
-    `;
-      }
-      document.getElementById('ra-q-counter').textContent = '';
-      document.getElementById('ra-person-counter').textContent = '';
-    }
-
-    function enterMomReadAloud() {
-      _raMomMode = true;
-      _raMomQIdx = 0;
-      renderMomReadAloud();
-    }
-
-    function renderMomReadAloud() {
-      if (!_raMomCard || !_raMomCard.answers.length) { closeReadAloud(); return; }
-      const ans = _raMomCard.answers[_raMomQIdx];
-      const body = document.getElementById('ra-body');
-
-      document.getElementById('ra-who').innerHTML =
-        `<strong>${esc(_raMomName)}</strong>'s own answers 🌸`;
-      document.getElementById('ra-q-counter').textContent =
-        `Q${_raMomQIdx + 1} of ${_raMomCard.answers.length}`;
-      document.getElementById('ra-person-counter').textContent = 'Mom';
-
-      body.onclick = advanceMomReadAloud;
-      body.innerHTML = `
-    <div class="ra-tag">
-      <span class="tag-badge ${ans.tag}">${tagEmoji(ans.tag)} ${tagLabel(ans.tag)}</span>
-    </div>
-    <div class="ra-question">${esc(ans.question_text)}</div>
-    <div class="ra-mom-label">🌸 MOM SAID</div>
-    <div class="ra-mom-answer">${esc(ans.answer_text)}</div>
-    <div class="ra-tap-hint">TAP TO ADVANCE</div>
-  `;
-    }
-
-    function advanceMomReadAloud() {
-      if (_raMomQIdx < _raMomCard.answers.length - 1) {
-        _raMomQIdx++;
-        renderMomReadAloud();
       } else {
         const body = document.getElementById('ra-body');
         body.onclick = null;
         body.innerHTML = `
-      <div class="ra-end">
-        <div style="font-size:56px;margin-bottom:16px">🎉</div>
-        <div class="ra-end-title">That's a wrap!</div>
-        <div class="ra-end-sub">All answers for ${esc(_raMomName)} have been read.</div>
-        <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
-      </div>
-    `;
+          <div class="ra-end">
+            <div style="font-size:56px;margin-bottom:16px">🎉</div>
+            <div class="ra-end-title">That's a wrap!</div>
+            <div class="ra-end-sub">All answers for <strong>${esc(_raMomDisplayName)}</strong> have been read.</div>
+            <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
+          </div>
+        `;
         document.getElementById('ra-q-counter').textContent = '';
-        document.getElementById('ra-person-counter').textContent = '';
       }
     }
 
