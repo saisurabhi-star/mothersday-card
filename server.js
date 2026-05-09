@@ -41,8 +41,8 @@ async function seedDefaults() {
     "Nirav and Neeva's Mom", "Ruhi and Rihaan's Mom", "Shloka and Veda's Mom", "Yuvi and Yashi's Mom"
   ];
   const users = [
-    'Aasvi', 'Arun', 'Geetu', 'Jaasvi', 'JP', 'Laxman', 'Navya', 'Neeva',
-    'Nirav', 'Pramod', 'Rihaan', 'RK', 'Ruhi', 'Shashank', 'Shloka', 'Twisha', 'Veda', 'Vinay'
+    'Aasvi', 'Geetu', 'Jaasvi', 'Navya', 'Neeva',
+    'Nirav', 'Rihaan', 'Ruhi', 'Shloka', 'Twisha', 'Veda', 'Yuvi', 'Yashi'
   ];
 
   const qCount = await query('SELECT COUNT(*) as c FROM questions');
@@ -60,10 +60,10 @@ async function seedDefaults() {
     }
   }
 
-  const userCount = await query('SELECT COUNT(*) as c FROM users');
+  const userCount = await query('SELECT COUNT(*) as c FROM card_users');
   if (parseInt(userCount.rows[0].c) === 0) {
     for (let i = 0; i < users.length; i++) {
-      await query('INSERT INTO users (name,sort_order) VALUES ($1,$2)', [users[i], i]);
+      await query('INSERT INTO card_users (name,sort_order) VALUES ($1,$2)', [users[i], i]);
     }
   }
 
@@ -79,7 +79,7 @@ async function initDb() {
       placeholder TEXT DEFAULT '',
       sort_order INTEGER DEFAULT 0
     );
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS card_users (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0
@@ -131,7 +131,7 @@ app.get('/api/config', async (req, res) => {
   try {
     const questions = await query('SELECT * FROM questions ORDER BY sort_order, id');
     const moms = await query('SELECT * FROM moms ORDER BY sort_order, name');
-    const users = await query('SELECT * FROM users ORDER BY sort_order, name');
+    const users = await query('SELECT * FROM card_users ORDER BY sort_order, name');
     const open = await getSetting('submissions_open');
     res.json({ questions: questions.rows, moms: moms.rows, users: users.rows, submissionsOpen: open === 'true' });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -255,7 +255,7 @@ app.delete('/api/admin/cards/:id', requireAdmin, async (req, res) => {
 });
 
 app.get('/api/admin/pending', requireAdmin, async (req, res) => {
-  const users = await query('SELECT * FROM users ORDER BY sort_order, name');
+  const users = await query('SELECT * FROM card_users ORDER BY sort_order, name');
   const submitted = await query('SELECT LOWER(respondent_name) as name FROM cards WHERE is_complete=true');
   const names = submitted.rows.map(r => r.name);
   res.json(users.rows.filter(u => !names.includes(u.name.toLowerCase())));
@@ -278,7 +278,7 @@ app.post('/api/admin/reseed', requireAdmin, async (req, res) => {
     await query('DELETE FROM answers');
     await query('DELETE FROM cards');
     await query('DELETE FROM questions');
-    await query('DELETE FROM users');
+    await query('DELETE FROM card_users');
     // votes and submissions (voting app) reference moms — clear them first
     try { await query('DELETE FROM votes'); } catch (_) {}
     try { await query('DELETE FROM submissions'); } catch (_) {}
@@ -330,13 +330,13 @@ app.delete('/api/admin/moms/:id', requireAdmin, async (req, res) => {
 
 // Users CRUD
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
-  res.json((await query('SELECT * FROM users ORDER BY sort_order, name')).rows);
+  res.json((await query('SELECT * FROM card_users ORDER BY sort_order, name')).rows);
 });
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-  res.json((await query('INSERT INTO users (name) VALUES ($1) RETURNING *', [req.body.name])).rows[0]);
+  res.json((await query('INSERT INTO card_users (name) VALUES ($1) RETURNING *', [req.body.name])).rows[0]);
 });
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
-  await query('DELETE FROM users WHERE id=$1', [req.params.id]);
+  await query('DELETE FROM card_users WHERE id=$1', [req.params.id]);
   res.json({ success: true });
 });
 
