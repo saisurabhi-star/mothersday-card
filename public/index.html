@@ -1299,10 +1299,131 @@
       color: #8de8a0;
       line-height: 1.4;
     }
+
+    /* ── MOM SPLASH ── */
+    #screen-mom-splash {
+      position: relative;
+      overflow: hidden;
+      background: #1a040c;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .splash-photo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      z-index: 0;
+    }
+    .splash-fallback {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, var(--blush) 0%, var(--rose) 50%, var(--deep-rose) 100%);
+      z-index: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 160px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.18);
+    }
+    .splash-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.0) 0%,
+        rgba(0,0,0,0.08) 28%,
+        rgba(80,10,30,0.55) 56%,
+        rgba(40,5,15,0.90) 78%,
+        rgba(30,2,10,0.97) 100%
+      );
+      z-index: 1;
+    }
+    .splash-content {
+      position: relative;
+      z-index: 3;
+      text-align: center;
+      padding: 40px 28px 72px;
+      width: 100%;
+      max-width: 480px;
+    }
+    .splash-eyebrow {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: rgba(255,210,220,0.85);
+      margin-bottom: 18px;
+    }
+    .splash-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(42px, 13vw, 68px);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.0;
+      margin-bottom: 16px;
+      text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+    }
+    .splash-tagline {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 19px;
+      color: rgba(255,200,210,0.88);
+      margin-bottom: 44px;
+      line-height: 1.5;
+    }
+    .splash-btn {
+      display: inline-block;
+      background: white;
+      color: var(--deep-rose);
+      border: none;
+      border-radius: 50px;
+      padding: 18px 48px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.4px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+      transition: transform 0.15s;
+    }
+    .splash-btn:active { transform: scale(0.96); }
+    @keyframes petal-fall {
+      0%   { transform: translateY(-60px) rotate(0deg); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 0.7; }
+      100% { transform: translateY(110vh) rotate(520deg); opacity: 0; }
+    }
+    .splash-petal {
+      position: absolute;
+      pointer-events: none;
+      animation: petal-fall linear infinite;
+      z-index: 2;
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- ── MOM SPLASH SCREEN ── -->
+  <div id="screen-mom-splash" class="screen">
+    <img id="mom-splash-photo" class="splash-photo" src="" alt="" />
+    <div id="mom-splash-fallback" class="splash-fallback"></div>
+    <div class="splash-overlay"></div>
+    <div id="splash-petals"></div>
+    <div class="splash-content">
+      <div class="splash-eyebrow">🌸 &nbsp; Happy Mother's Day &nbsp; 🌸</div>
+      <div id="mom-splash-name" class="splash-name"></div>
+      <div class="splash-tagline">We love you more than<br>words can say 💕</div>
+      <button class="splash-btn" onclick="beginCard()">Let's Go! 🎉</button>
+    </div>
+  </div>
 
   <!-- ── ENTRY SCREEN ── -->
   <div id="screen-entry" class="screen active">
@@ -1740,6 +1861,68 @@
         document.getElementById('thanks-mom-msg').style.display = 'none';
       }
 
+      const mom = config.moms.find(m => m.id === selectedMomId);
+      showMomSplash(mom);
+    }
+
+    // Photo filename lookup — keyed by exact mom name from the database
+    const MOM_PHOTOS = {
+      "Aasvi's Mom":              "Aasvi'sMom.JPG",
+      "Jaasvi & Twisha's Mom":    "JaasviTwisha'sMom.JPG",
+      "Navya and Geetu's Mom":    "NavyaGeethu'sMom.HEIC",
+      "Nirav and Neeva's Mom":    "NiravNeeva'sMom.JPG",
+      "Ruhi and Rihaan's Mom":    "RuhiRihaan'sMom.JPG",
+      "Shloka and Veda's Mom":    "ShlokaVeda'sMom.JPG",
+      "Yuvi and Yashi's Mom":     "YuviYashi'sMom.JPG",
+    };
+
+    function momFirstName(momName) {
+      // "Nirav and Neeva's Mom" → "Neeva" (last kid name before 's Mom)
+      // "Aasvi's Mom" → "Aasvi"
+      // "Jaasvi & Twisha's Mom" → "Twisha"
+      const match = momName.match(/(\w+)[''`]s Mom/i);
+      return match ? match[1] : momName.replace(/\s*Mom$/i, '').trim();
+    }
+
+    function showMomSplash(mom) {
+      const firstName = mom ? momFirstName(mom.name) : 'Mom';
+      document.getElementById('mom-splash-name').textContent = firstName;
+
+      const photo = document.getElementById('mom-splash-photo');
+      const fallback = document.getElementById('mom-splash-fallback');
+      fallback.style.display = 'none';
+      photo.style.display = 'block';
+      const filename = mom ? MOM_PHOTOS[mom.name] : null;
+      if (filename) {
+        photo.onerror = () => {
+          photo.style.display = 'none';
+          fallback.textContent = firstName.charAt(0).toUpperCase();
+          fallback.style.display = 'flex';
+        };
+        photo.src = '/' + filename;
+      } else {
+        photo.style.display = 'none';
+        fallback.textContent = firstName.charAt(0).toUpperCase();
+        fallback.style.display = 'flex';
+      }
+
+      // Falling petals
+      const container = document.getElementById('splash-petals');
+      container.innerHTML = '';
+      const petals = ['🌸','🌺','🌷','✨','💐','🩷'];
+      for (let i = 0; i < 14; i++) {
+        const p = document.createElement('div');
+        p.className = 'splash-petal';
+        p.textContent = petals[i % petals.length];
+        const size = 16 + Math.random() * 18;
+        p.style.cssText = `font-size:${size}px;left:${Math.random()*100}%;top:0;animation-duration:${4+Math.random()*5}s;animation-delay:${Math.random()*6}s;`;
+        container.appendChild(p);
+      }
+
+      showScreen('mom-splash');
+    }
+
+    function beginCard() {
       renderQuestionScreen();
       showScreen('question');
     }
