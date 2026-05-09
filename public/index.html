@@ -1308,7 +1308,7 @@
   <div id="screen-entry" class="screen active">
     <div class="petal">🌸</div>
     <div class="hero-title">How Well Do<br>You Know Mom?</div>
-    <div class="hero-sub">Answer 10 questions — we'll read them<br>at the party! 🎉</div>
+    <div class="hero-sub">Answer 9 questions — we'll read them<br>at the party! 🎉</div>
 
     <div class="mode-toggle">
       <button class="mode-btn active" id="mode-btn-kid" onclick="setMode('kid')">👦 I'm a Kid</button>
@@ -1326,10 +1326,12 @@
             <option value="">Pick your name…</option>
           </select>
         </div>
-        <div id="auto-mom-display" style="display:none;background:#fef9e7;border:1px solid #f0d060;border-radius:10px;padding:10px 14px;font-size:13px;color:#8a6a00;margin-bottom:16px;text-align:center">
+        <div id="auto-mom-display"
+          style="display:none;background:#fef9e7;border:1px solid #f0d060;border-radius:10px;padding:10px 14px;font-size:13px;color:#8a6a00;margin-bottom:16px;text-align:center">
           Filling out for: <strong id="auto-mom-name"></strong>
         </div>
-        <div id="no-mom-warning" style="display:none;background:#fde;border:1px solid #f99;border-radius:10px;padding:10px 14px;font-size:13px;color:#900;margin-bottom:16px;text-align:center">
+        <div id="no-mom-warning"
+          style="display:none;background:#fde;border:1px solid #f99;border-radius:10px;padding:10px 14px;font-size:13px;color:#900;margin-bottom:16px;text-align:center">
           ⚠️ No mom assigned to your name. Ask the organizer.
         </div>
       </div>
@@ -1521,7 +1523,9 @@
           <div class="admin-card-title">Registered Users</div>
           <div id="users-list"></div>
           <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Add User</div>
+            <div
+              style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px">
+              Add User</div>
             <div class="add-row">
               <input class="add-input" id="new-user-input" placeholder="Name" style="flex:1" />
               <select class="add-input" id="new-user-mom" style="flex:1">
@@ -1634,7 +1638,7 @@
     }
 
     function populateDropdowns() {
-      const userSel    = document.getElementById('select-user');
+      const userSel = document.getElementById('select-user');
       const momSelfSel = document.getElementById('select-mom-self');
       userSel.innerHTML = '<option value="">Pick your name…</option>' +
         config.users.map(u => `<option value="${esc(u.name)}">${esc(u.name)}</option>`).join('');
@@ -1661,18 +1665,18 @@
     function onUserSelect() {
       const nameVal = document.getElementById('select-user').value;
       const user = config.users.find(u => u.name === nameVal);
-      const autoDisplay  = document.getElementById('auto-mom-display');
+      const autoDisplay = document.getElementById('auto-mom-display');
       const noMomWarning = document.getElementById('no-mom-warning');
       if (!nameVal) {
-        autoDisplay.style.display  = 'none';
+        autoDisplay.style.display = 'none';
         noMomWarning.style.display = 'none';
       } else if (user && user.mom_id) {
         const mom = config.moms.find(m => m.id === user.mom_id);
         document.getElementById('auto-mom-name').textContent = mom ? mom.name : 'Unknown';
-        autoDisplay.style.display  = '';
+        autoDisplay.style.display = '';
         noMomWarning.style.display = 'none';
       } else {
-        autoDisplay.style.display  = 'none';
+        autoDisplay.style.display = 'none';
         noMomWarning.style.display = '';
       }
       checkReady();
@@ -1685,7 +1689,7 @@
         ready = document.getElementById('select-mom-self').value !== '';
       } else {
         const nameVal = document.getElementById('select-user').value;
-        const user    = config.users.find(u => u.name === nameVal);
+        const user = config.users.find(u => u.name === nameVal);
         ready = !!nameVal && !!(user && user.mom_id);
       }
       document.getElementById('btn-start').classList.toggle('enabled', ready);
@@ -2332,7 +2336,7 @@
         aFetch('/api/admin/pending')
       ]);
       _adminUsers = await usersRes.json();
-      const pending   = await pendingRes.json();
+      const pending = await pendingRes.json();
       const pendNames = pending.map(p => p.name.toLowerCase());
 
       // populate mom dropdown in add-user form
@@ -2363,7 +2367,7 @@
     }
 
     function editUserMom(id) {
-      const u  = _adminUsers.find(u => u.id === id);
+      const u = _adminUsers.find(u => u.id === id);
       const el = document.getElementById('user-item-' + id);
       if (!u || !el) return;
       el.innerHTML = `
@@ -2371,7 +2375,7 @@
           <span class="list-item-name">${esc(u.name)}</span>
           <select class="add-input" id="user-mom-sel-${id}" style="flex:1">
             <option value="">No mom</option>
-            ${_adminMoms.map(m => `<option value="${m.id}" ${u.mom_id===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}
+            ${_adminMoms.map(m => `<option value="${m.id}" ${u.mom_id === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
           </select>
         </div>
         <button class="btn-add" style="padding:6px 12px" onclick="saveUserMom(${id})">Save</button>
@@ -2390,7 +2394,7 @@
     }
 
     async function addUser() {
-      const input  = document.getElementById('new-user-input');
+      const input = document.getElementById('new-user-input');
       const momSel = document.getElementById('new-user-mom');
       if (!input.value.trim()) return;
       await aFetch('/api/admin/users', {
