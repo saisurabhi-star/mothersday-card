@@ -1835,7 +1835,7 @@
         selectedMomId = parseInt(momVal);
         answers = {};
         currentQIndex = 0;
-        document.getElementById('q-for-label').innerHTML = 'Answering as <strong>' + esc(respondentName) + '</strong> 🌸';
+        document.getElementById('q-for-label').innerHTML = 'Answering as <strong>' + esc(momDisplayName(config.moms.find(m => m.id === selectedMomId))) + '</strong> 🌸';
         document.getElementById('thanks-name').textContent = respondentName;
         document.getElementById('thanks-kid-msg').style.display = 'none';
         document.getElementById('thanks-mom-msg').style.display = '';
@@ -1855,7 +1855,7 @@
         answers = {};
         currentQIndex = 0;
         const mom = config.moms.find(m => m.id === selectedMomId);
-        document.getElementById('q-for-label').innerHTML = 'Filling out for <strong>' + esc(mom ? mom.name : 'Mom') + '</strong>';
+        document.getElementById('q-for-label').innerHTML = 'Filling out for <strong>' + esc(momDisplayName(mom)) + '</strong>';
         document.getElementById('thanks-name').textContent = respondentName;
         document.getElementById('thanks-kid-msg').style.display = '';
         document.getElementById('thanks-mom-msg').style.display = 'none';
@@ -1864,6 +1864,17 @@
       const mom = config.moms.find(m => m.id === selectedMomId);
       showMomSplash(mom);
     }
+
+    // Display names shown on splash and question header
+    const MOM_DISPLAY_NAMES = {
+      "Aasvi's Mom":              "Sowjany",
+      "Jaasvi & Twisha's Mom":    "Swapna C.",
+      "Navya and Geetu's Mom":    "Kalyani",
+      "Nirav and Neeva's Mom":    "Sai",
+      "Ruhi and Rihaan's Mom":    "Swapna K.",
+      "Shloka and Veda's Mom":    "Shravanthi",
+      "Yuvi and Yashi's Mom":     "Kranthi",
+    };
 
     // Photo filename lookup — keyed by exact mom name from the database
     const MOM_PHOTOS = {
@@ -1876,17 +1887,13 @@
       "Yuvi and Yashi's Mom":     "YuviYashi'sMom.JPG",
     };
 
-    function momFirstName(momName) {
-      // "Nirav and Neeva's Mom" → "Neeva" (last kid name before 's Mom)
-      // "Aasvi's Mom" → "Aasvi"
-      // "Jaasvi & Twisha's Mom" → "Twisha"
-      const match = momName.match(/(\w+)[''`]s Mom/i);
-      return match ? match[1] : momName.replace(/\s*Mom$/i, '').trim();
+    function momDisplayName(mom) {
+      return (mom && MOM_DISPLAY_NAMES[mom.name]) || (mom ? mom.name : 'Mom');
     }
 
     function showMomSplash(mom) {
-      const firstName = mom ? momFirstName(mom.name) : 'Mom';
-      document.getElementById('mom-splash-name').textContent = firstName;
+      const displayName = momDisplayName(mom);
+      document.getElementById('mom-splash-name').textContent = displayName;
 
       const photo = document.getElementById('mom-splash-photo');
       const fallback = document.getElementById('mom-splash-fallback');
@@ -1896,13 +1903,13 @@
       if (filename) {
         photo.onerror = () => {
           photo.style.display = 'none';
-          fallback.textContent = firstName.charAt(0).toUpperCase();
+          fallback.textContent = displayName.charAt(0).toUpperCase();
           fallback.style.display = 'flex';
         };
         photo.src = '/' + filename;
       } else {
         photo.style.display = 'none';
-        fallback.textContent = firstName.charAt(0).toUpperCase();
+        fallback.textContent = displayName.charAt(0).toUpperCase();
         fallback.style.display = 'flex';
       }
 
