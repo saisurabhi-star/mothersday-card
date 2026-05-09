@@ -1198,7 +1198,6 @@ async function startCard() {
     answers        = {};
     currentQIndex  = 0;
     document.getElementById('q-for-label').innerHTML = 'Answering as <strong>' + esc(respondentName) + '</strong> 🌸';
-    document.getElementById('q-mom-name').textContent = '';
     document.getElementById('thanks-name').textContent = respondentName;
     document.getElementById('thanks-kid-msg').style.display = 'none';
     document.getElementById('thanks-mom-msg').style.display = '';
@@ -1219,7 +1218,6 @@ async function startCard() {
     currentQIndex  = 0;
     const mom = config.moms.find(m => m.id === selectedMomId);
     document.getElementById('q-for-label').innerHTML = 'Filling out for <strong>' + esc(mom ? mom.name : 'Mom') + '</strong>';
-    document.getElementById('q-mom-name').textContent = '';
     document.getElementById('thanks-name').textContent = respondentName;
     document.getElementById('thanks-kid-msg').style.display = '';
     document.getElementById('thanks-mom-msg').style.display = 'none';
