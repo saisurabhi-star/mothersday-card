@@ -36,11 +36,11 @@ async function seedDefaults() {
     ['What would Mom do with 24 hours completely alone?', 'wildcard', 'e.g. Sleep the entire time', 8, 'What would YOU do with 24 hours completely alone?'],
   ];
   const moms = [
-    "Aasvi's Mom", "Jaasvi & Twisha's Mom", "Navya and Geetu's Mom",
+    "Aashvi's Mom", "Jaasvi & Twisha's Mom", "Navya and Geetu's Mom",
     "Nirav and Neeva's Mom", "Ruhi and Rihaan's Mom", "Shloka and Veda's Mom", "Yuvi and Yashi's Mom"
   ];
   const users = [
-    { name: 'Aasvi', momName: "Aasvi's Mom" },
+    { name: 'Aashvi', momName: "Aashvi's Mom" },
     { name: 'Geetu', momName: "Navya and Geetu's Mom" },
     { name: 'Jaasvi', momName: "Jaasvi & Twisha's Mom" },
     { name: 'Navya', momName: "Navya and Geetu's Mom" },
@@ -125,6 +125,10 @@ async function initDb() {
   await query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS mom_text TEXT DEFAULT ''`);
   await query(`ALTER TABLE card_users ADD COLUMN IF NOT EXISTS mom_id INTEGER REFERENCES moms(id)`);
   await seedDefaults();
+  // Rename Aasvi → Aashvi (idempotent)
+  await query(`UPDATE moms SET name='Aashvi''s Mom' WHERE name='Aasvi''s Mom'`);
+  await query(`UPDATE card_users SET name='Aashvi' WHERE name='Aasvi'`);
+
   console.log('✅ Database initialized');
 }
 
