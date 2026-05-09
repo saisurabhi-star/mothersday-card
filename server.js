@@ -41,8 +41,19 @@ async function seedDefaults() {
     "Nirav and Neeva's Mom", "Ruhi and Rihaan's Mom", "Shloka and Veda's Mom", "Yuvi and Yashi's Mom"
   ];
   const users = [
-    'Aasvi', 'Geetu', 'Jaasvi', 'Navya', 'Neeva',
-    'Nirav', 'Rihaan', 'Ruhi', 'Shloka', 'Twisha', 'Veda', 'Yuvi', 'Yashi'
+    { name: 'Aasvi',  momName: "Aasvi's Mom" },
+    { name: 'Geetu',  momName: "Navya and Geetu's Mom" },
+    { name: 'Jaasvi', momName: "Jaasvi & Twisha's Mom" },
+    { name: 'Navya',  momName: "Navya and Geetu's Mom" },
+    { name: 'Neeva',  momName: "Nirav and Neeva's Mom" },
+    { name: 'Nirav',  momName: "Nirav and Neeva's Mom" },
+    { name: 'Rihaan', momName: "Ruhi and Rihaan's Mom" },
+    { name: 'Ruhi',   momName: "Ruhi and Rihaan's Mom" },
+    { name: 'Shloka', momName: "Shloka and Veda's Mom" },
+    { name: 'Twisha', momName: "Jaasvi & Twisha's Mom" },
+    { name: 'Veda',   momName: "Shloka and Veda's Mom" },
+    { name: 'Yuvi',   momName: "Yuvi and Yashi's Mom" },
+    { name: 'Yashi',  momName: "Yuvi and Yashi's Mom" },
   ];
 
   const qCount = await query('SELECT COUNT(*) as c FROM questions');
@@ -63,7 +74,10 @@ async function seedDefaults() {
   const userCount = await query('SELECT COUNT(*) as c FROM card_users');
   if (parseInt(userCount.rows[0].c) === 0) {
     for (let i = 0; i < users.length; i++) {
-      await query('INSERT INTO card_users (name,sort_order) VALUES ($1,$2)', [users[i], i]);
+      const { name, momName } = users[i];
+      const momRes = await query('SELECT id FROM moms WHERE name=$1', [momName]);
+      const momId = momRes.rows[0]?.id || null;
+      await query('INSERT INTO card_users (name,sort_order,mom_id) VALUES ($1,$2,$3)', [name, i, momId]);
     }
   }
 
@@ -82,7 +96,8 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS card_users (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      sort_order INTEGER DEFAULT 0
+      sort_order INTEGER DEFAULT 0,
+      mom_id INTEGER REFERENCES moms(id)
     );
     CREATE TABLE IF NOT EXISTS moms (
       id SERIAL PRIMARY KEY,
@@ -109,6 +124,7 @@ async function initDb() {
   `);
   await query(`ALTER TABLE cards ADD COLUMN IF NOT EXISTS respondent_type TEXT DEFAULT 'kid'`);
   await query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS mom_text TEXT DEFAULT ''`);
+  await query(`ALTER TABLE card_users ADD COLUMN IF NOT EXISTS mom_id INTEGER REFERENCES moms(id)`);
   await seedDefaults();
   console.log('✅ Database initialized');
 }
@@ -330,10 +346,25 @@ app.delete('/api/admin/moms/:id', requireAdmin, async (req, res) => {
 
 // Users CRUD
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
-  res.json((await query('SELECT * FROM card_users ORDER BY sort_order, name')).rows);
+  const r = await query(`
+    SELECT cu.*, m.name as mom_name
+    FROM card_users cu LEFT JOIN moms m ON cu.mom_id=m.id
+    ORDER BY cu.sort_order, cu.name
+  `);
+  res.json(r.rows);
 });
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-  res.json((await query('INSERT INTO card_users (name) VALUES ($1) RETURNING *', [req.body.name])).rows[0]);
+  const { name, mom_id } = req.body;
+  const r = await query(
+    'INSERT INTO card_users (name, mom_id) VALUES ($1,$2) RETURNING *',
+    [name, mom_id || null]
+  );
+  res.json(r.rows[0]);
+});
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  const { name, mom_id } = req.body;
+  await query('UPDATE card_users SET name=$1, mom_id=$2 WHERE id=$3', [name, mom_id || null, req.params.id]);
+  res.json({ success: true });
 });
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   await query('DELETE FROM card_users WHERE id=$1', [req.params.id]);
