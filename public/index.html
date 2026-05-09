@@ -748,6 +748,87 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
   margin-bottom:8px;
 }
 .ra-end-sub { font-size:15px; color:rgba(255,255,255,0.6); margin-bottom:24px; }
+
+/* ── MODE TOGGLE ── */
+.mode-toggle {
+  display:flex;
+  background:white;
+  border-radius:12px;
+  padding:4px;
+  margin-bottom:16px;
+  box-shadow:0 2px 12px rgba(168,75,99,0.1);
+  border:1px solid var(--border);
+  width:100%;
+  max-width:380px;
+}
+.mode-btn {
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:9px;
+  font-family:'DM Sans',sans-serif;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  background:transparent;
+  color:var(--muted);
+  transition:all 0.2s;
+}
+.mode-btn.active {
+  background:linear-gradient(135deg,var(--rose),var(--deep-rose));
+  color:white;
+  box-shadow:0 2px 8px rgba(168,75,99,0.25);
+}
+.mode-btn.active.mom-active {
+  background:linear-gradient(135deg,var(--sage),var(--sage-dark));
+  box-shadow:0 2px 8px rgba(122,158,126,0.3);
+}
+.mom-secret-note {
+  background:#eef4ef;
+  border:1px solid var(--sage);
+  border-radius:10px;
+  padding:10px 14px;
+  font-size:13px;
+  color:var(--sage-dark);
+  margin-bottom:16px;
+  text-align:center;
+  line-height:1.4;
+}
+/* mom answers card in by-mom view */
+.mom-answer-card {
+  background:linear-gradient(135deg,#eef4ef,#ddeee0);
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:16px;
+  border:1.5px solid var(--sage);
+}
+.mom-answer-card-title {
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--sage-dark);
+  margin-bottom:12px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+/* read aloud mom reveal */
+.ra-mom-label {
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--sage);
+  margin-bottom:8px;
+}
+.ra-mom-answer {
+  font-family:'DM Sans',sans-serif;
+  font-size:28px;
+  font-weight:500;
+  color:#8de8a0;
+  line-height:1.4;
+}
 </style>
 </head>
 <body>
@@ -757,19 +838,38 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
   <div class="petal">🌸</div>
   <div class="hero-title">How Well Do<br>You Know Mom?</div>
   <div class="hero-sub">Answer 10 questions — we'll read them<br>at the party! 🎉</div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode-btn-kid" onclick="setMode('kid')">👦 I'm a Kid / Adult</button>
+    <button class="mode-btn" id="mode-btn-mom" onclick="setMode('mom')">🌸 I'm a Mom</button>
+  </div>
+
   <div class="entry-card">
-    <div class="secret-note">🤫 Fill this out <strong>before</strong> the event.<br>Don't let Mom see your answers!</div>
-    <label class="field-label">Your Name</label>
-    <div class="select-wrap">
-      <select id="select-user" class="select-input" onchange="checkReady()">
-        <option value="">Pick your name…</option>
-      </select>
+    <!-- Kid / Adult fields -->
+    <div id="kid-fields">
+      <div class="secret-note">🤫 Fill this out <strong>before</strong> the event.<br>Don't let Mom see your answers!</div>
+      <label class="field-label">Your Name</label>
+      <div class="select-wrap">
+        <select id="select-user" class="select-input" onchange="checkReady()">
+          <option value="">Pick your name…</option>
+        </select>
+      </div>
+      <label class="field-label">Which Mom are you filling this out for?</label>
+      <div class="select-wrap">
+        <select id="select-mom" class="select-input" onchange="checkReady()">
+          <option value="">Pick a mom…</option>
+        </select>
+      </div>
     </div>
-    <label class="field-label">Which Mom are you filling this out for?</label>
-    <div class="select-wrap">
-      <select id="select-mom" class="select-input" onchange="checkReady()">
-        <option value="">Pick a mom…</option>
-      </select>
+    <!-- Mom fields -->
+    <div id="mom-fields" style="display:none">
+      <div class="mom-secret-note">🌸 Your family already answered questions about you.<br>Now it's <strong>your turn</strong> — be honest!</div>
+      <label class="field-label">Which mom are you?</label>
+      <div class="select-wrap">
+        <select id="select-mom-self" class="select-input" onchange="checkReady()">
+          <option value="">Pick your name…</option>
+        </select>
+      </div>
     </div>
     <button id="btn-start" class="btn-primary" onclick="startCard()">Start Filling Out My Card →</button>
     <div id="entry-error" class="error-msg"></div>
@@ -787,7 +887,7 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
 <div id="screen-question" class="screen">
   <div class="q-header">
     <div class="q-header-top">
-      <div class="q-for-label">Filling out for <strong id="q-mom-name"></strong></div>
+      <div class="q-for-label" id="q-for-label">Filling out for <strong id="q-mom-name"></strong></div>
       <div class="q-counter" id="q-counter">1 of 10</div>
     </div>
     <div class="progress-wrap">
@@ -829,10 +929,20 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
 <div id="screen-thanks" class="screen">
   <div style="font-size:60px;margin-bottom:12px;animation:bounce 0.6s ease">🎊</div>
   <div class="thanks-title">Thanks, <span id="thanks-name"></span>!</div>
-  <div class="thanks-sub" style="margin-top:8px">
-    Your answers are saved.<br>We'll read them at the party!
+  <div id="thanks-kid-msg">
+    <div class="thanks-sub" style="margin-top:8px">
+      Your answers are saved.<br>We'll read them at the party!
+    </div>
+    <div class="shh-box">🤫 Don't spoil the surprise — don't tell Mom!</div>
   </div>
-  <div class="shh-box">🤫 Don't spoil the surprise — don't tell Mom!</div>
+  <div id="thanks-mom-msg" style="display:none">
+    <div class="thanks-sub" style="margin-top:8px">
+      Your answers are saved.<br>We'll compare notes at the party! 🌸
+    </div>
+    <div class="shh-box" style="background:#eef4ef;border-color:var(--sage);color:var(--sage-dark)">
+      🌸 Your family will love finding out how well they know you!
+    </div>
+  </div>
 </div>
 
 <!-- ── ADMIN PIN SCREEN ── -->
@@ -901,7 +1011,10 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
         <div id="questions-list"></div>
         <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
           <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Add Question</div>
-          <textarea class="q-edit-textarea" id="new-q-text" placeholder="Question text…" style="width:100%;margin-bottom:8px"></textarea>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Kids version</div>
+          <textarea class="q-edit-textarea" id="new-q-text" placeholder="Question text for kids/adults…" style="width:100%;margin-bottom:8px"></textarea>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sage-dark);margin-bottom:4px">🌸 Mom version</div>
+          <textarea class="q-edit-textarea" id="new-q-momtext" placeholder="Mom-facing version (optional)…" style="width:100%;margin-bottom:8px"></textarea>
           <div class="add-row">
             <select class="add-input" id="new-q-tag" style="flex:none;width:130px">
               <option value="funny">😄 Funny</option>
@@ -970,11 +1083,12 @@ select.add-input { cursor:pointer; appearance:none; background-image:url("data:i
 <script>
 // ── STATE ──
 let config = { questions:[], moms:[], users:[], submissionsOpen:true };
-let respondentName = '';
-let selectedMomId  = null;
-let currentQIndex  = 0;
-let answers        = {};  // { questionId: text }
-let adminPin       = '';
+let respondentName  = '';
+let selectedMomId   = null;
+let currentQIndex   = 0;
+let answers         = {};  // { questionId: text }
+let adminPin        = '';
+let respondentMode  = 'kid';  // 'kid' or 'mom'
 
 // admin state
 let _adminQuestions = [];
@@ -988,6 +1102,9 @@ let _raCards    = [];
 let _raCardIdx  = 0;
 let _raQIdx     = 0;
 let _raMomName  = '';
+let _raMomCard  = null;   // mom's own card for this mom
+let _raMomMode  = false;  // true when showing mom's answers
+let _raMomQIdx  = 0;
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1023,45 +1140,90 @@ async function loadConfig() {
 }
 
 function populateDropdowns() {
-  const userSel = document.getElementById('select-user');
-  const momSel  = document.getElementById('select-mom');
+  const userSel    = document.getElementById('select-user');
+  const momSel     = document.getElementById('select-mom');
+  const momSelfSel = document.getElementById('select-mom-self');
   userSel.innerHTML = '<option value="">Pick your name…</option>' +
     config.users.map(u => `<option value="${esc(u.name)}">${esc(u.name)}</option>`).join('');
-  momSel.innerHTML = '<option value="">Pick a mom…</option>' +
+  const momOpts = '<option value="">Pick a mom…</option>' +
     config.moms.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  momSel.innerHTML    = momOpts;
+  momSelfSel.innerHTML = momOpts;
+}
+
+// ── MODE TOGGLE ──
+function setMode(mode) {
+  respondentMode = mode;
+  const kidBtn = document.getElementById('mode-btn-kid');
+  const momBtn = document.getElementById('mode-btn-mom');
+  kidBtn.classList.toggle('active', mode === 'kid');
+  momBtn.classList.toggle('active', mode === 'mom');
+  momBtn.classList.toggle('mom-active', mode === 'mom');
+  document.getElementById('kid-fields').style.display = mode === 'kid' ? '' : 'none';
+  document.getElementById('mom-fields').style.display = mode === 'mom' ? '' : 'none';
+  document.getElementById('entry-error').style.display = 'none';
+  checkReady();
 }
 
 // ── ENTRY ──
 function checkReady() {
-  const hasUser = document.getElementById('select-user').value !== '';
-  const hasMom  = document.getElementById('select-mom').value !== '';
-  document.getElementById('btn-start').classList.toggle('enabled', hasUser && hasMom);
+  let ready;
+  if (respondentMode === 'mom') {
+    ready = document.getElementById('select-mom-self').value !== '';
+  } else {
+    const hasUser = document.getElementById('select-user').value !== '';
+    const hasMom  = document.getElementById('select-mom').value !== '';
+    ready = hasUser && hasMom;
+  }
+  document.getElementById('btn-start').classList.toggle('enabled', ready);
 }
 
 async function startCard() {
-  const nameVal = document.getElementById('select-user').value;
-  const momVal  = document.getElementById('select-mom').value;
-  if (!nameVal || !momVal) return;
-
   const errEl = document.getElementById('entry-error');
   errEl.style.display = 'none';
 
-  const res  = await fetch('/api/check-user?name=' + encodeURIComponent(nameVal));
-  const data = await res.json();
-  if (data.alreadySubmitted) {
-    errEl.textContent = 'You already filled out a card! See Vinay if you need to change something.';
-    errEl.style.display = 'block';
-    return;
+  if (respondentMode === 'mom') {
+    const momVal = document.getElementById('select-mom-self').value;
+    if (!momVal) return;
+    const res  = await fetch('/api/check-mom?momId=' + encodeURIComponent(momVal));
+    const data = await res.json();
+    if (data.alreadySubmitted) {
+      errEl.textContent = 'This mom already submitted her answers!';
+      errEl.style.display = 'block';
+      return;
+    }
+    const mom = config.moms.find(m => m.id === parseInt(momVal));
+    respondentName = mom ? mom.name : 'Mom';
+    selectedMomId  = parseInt(momVal);
+    answers        = {};
+    currentQIndex  = 0;
+    document.getElementById('q-for-label').innerHTML = 'Answering as <strong>' + esc(respondentName) + '</strong> 🌸';
+    document.getElementById('q-mom-name').textContent = '';
+    document.getElementById('thanks-name').textContent = respondentName;
+    document.getElementById('thanks-kid-msg').style.display = 'none';
+    document.getElementById('thanks-mom-msg').style.display = '';
+  } else {
+    const nameVal = document.getElementById('select-user').value;
+    const momVal  = document.getElementById('select-mom').value;
+    if (!nameVal || !momVal) return;
+    const res  = await fetch('/api/check-user?name=' + encodeURIComponent(nameVal));
+    const data = await res.json();
+    if (data.alreadySubmitted) {
+      errEl.textContent = 'You already filled out a card! See Vinay if you need to change something.';
+      errEl.style.display = 'block';
+      return;
+    }
+    respondentName = nameVal;
+    selectedMomId  = parseInt(momVal);
+    answers        = {};
+    currentQIndex  = 0;
+    const mom = config.moms.find(m => m.id === selectedMomId);
+    document.getElementById('q-for-label').innerHTML = 'Filling out for <strong>' + esc(mom ? mom.name : 'Mom') + '</strong>';
+    document.getElementById('q-mom-name').textContent = '';
+    document.getElementById('thanks-name').textContent = respondentName;
+    document.getElementById('thanks-kid-msg').style.display = '';
+    document.getElementById('thanks-mom-msg').style.display = 'none';
   }
-
-  respondentName = nameVal;
-  selectedMomId  = parseInt(momVal);
-  answers        = {};
-  currentQIndex  = 0;
-
-  const mom = config.moms.find(m => m.id === selectedMomId);
-  document.getElementById('q-mom-name').textContent  = mom ? mom.name : 'Mom';
-  document.getElementById('thanks-name').textContent = respondentName;
 
   renderQuestionScreen();
   showScreen('question');
@@ -1080,7 +1242,8 @@ function renderQuestionScreen() {
   badge.textContent  = tagEmoji(q.tag) + ' ' + tagLabel(q.tag);
   badge.className    = 'tag-badge ' + q.tag;
 
-  document.getElementById('q-text').textContent = q.text;
+  const qText = (respondentMode === 'mom' && q.mom_text) ? q.mom_text : q.text;
+  document.getElementById('q-text').textContent = qText;
   document.getElementById('q-hint').textContent = q.placeholder || '';
 
   const ta = document.getElementById('answer-textarea');
@@ -1133,15 +1296,18 @@ function goBackFromReview() {
 
 // ── REVIEW ──
 function renderReview() {
-  document.getElementById('review-list').innerHTML = config.questions.map((q, i) => `
-    <div class="review-qa">
-      <div class="review-q-num">
-        Q${i+1} &nbsp;<span class="tag-badge ${q.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(q.tag)} ${tagLabel(q.tag)}</span>
+  document.getElementById('review-list').innerHTML = config.questions.map((q, i) => {
+    const qText = (respondentMode === 'mom' && q.mom_text) ? q.mom_text : q.text;
+    return `
+      <div class="review-qa">
+        <div class="review-q-num">
+          Q${i+1} &nbsp;<span class="tag-badge ${q.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(q.tag)} ${tagLabel(q.tag)}</span>
+        </div>
+        <div class="review-q-text">${esc(qText)}</div>
+        <div class="review-answer">${esc(answers[q.id] || '–')}</div>
       </div>
-      <div class="review-q-text">${esc(q.text)}</div>
-      <div class="review-answer">${esc(answers[q.id] || '–')}</div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 async function submitCard() {
@@ -1149,7 +1315,7 @@ async function submitCard() {
     const res = await fetch('/api/submit', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ respondentName, momId: selectedMomId, answers })
+      body: JSON.stringify({ respondentName, momId: selectedMomId, answers, respondentType: respondentMode })
     });
     const data = await res.json();
     if (res.ok && data.success) {
@@ -1239,7 +1405,7 @@ async function loadAdminOverview() {
       <div class="sub-row" id="card-row-${c.id}">
         <div class="sub-row-header" onclick="toggleCardExpand(${c.id})">
           <div>
-            <div class="sub-name">${esc(c.respondent_name)}</div>
+            <div class="sub-name">${esc(c.respondent_name)} ${c.respondent_type==='mom'?'<span style="font-size:11px;color:var(--sage-dark);font-weight:400">🌸 Mom</span>':''}</div>
             <div class="sub-meta">for ${esc(c.mom_name||'?')} · ${new Date(c.submitted_at).toLocaleTimeString()}</div>
           </div>
           <div class="sub-actions">
@@ -1318,33 +1484,63 @@ async function loadByMom(momId) {
   const mom   = _adminMoms.find(m => m.id === momId);
   const momName = mom ? mom.name : 'Mom';
 
+  const momCard  = _byMomCards.find(c => c.respondent_type === 'mom');
+  const kidCards = _byMomCards.filter(c => c.respondent_type !== 'mom');
+
   if (!_byMomCards.length) {
     contentEl.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No responses yet for ${esc(momName)}.</div>`;
     return;
   }
 
-  contentEl.innerHTML = `
-    <button class="btn-readaloud" onclick="startReadAloud(${momId})">📣 Read Aloud Mode for ${esc(momName)}</button>
-    ${_byMomCards.map(card => `
-      <div class="bymom-card">
-        <div class="bymom-card-header" onclick="toggleByMomCard(${card.id})">
-          <div style="flex:1">
-            <div class="sub-name">${esc(card.respondent_name)}</div>
-            <div class="sub-meta">${new Date(card.submitted_at).toLocaleTimeString()}</div>
-          </div>
-          <button class="btn-delete" onclick="event.stopPropagation();deleteCard(${card.id})">Delete</button>
-          <span id="bymom-expand-${card.id}" style="color:var(--muted);font-size:18px;margin-left:6px">⌄</span>
+  const momCardHtml = momCard ? `
+    <div class="mom-answer-card">
+      <div class="mom-answer-card-title">🌸 Mom's Own Answers</div>
+      ${momCard.answers.map(a => `
+        <div class="bymom-qa">
+          <div class="bymom-q">${esc(a.question_text)} <span class="tag-badge ${a.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(a.tag)}</span></div>
+          <div class="bymom-a">${esc(a.answer_text)}</div>
         </div>
-        <div class="bymom-card-body" id="bymom-body-${card.id}" style="display:none">
-          ${card.answers.map(a => `
-            <div class="bymom-qa">
-              <div class="bymom-q">${esc(a.question_text)} <span class="tag-badge ${a.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(a.tag)}</span></div>
-              <div class="bymom-a">${esc(a.answer_text)}</div>
-            </div>
-          `).join('')}
-        </div>
+      `).join('')}
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--sage);display:flex;justify-content:flex-end">
+        <button class="btn-delete" onclick="deleteCard(${momCard.id})">Delete Mom's Answers</button>
       </div>
-    `).join('')}
+    </div>
+  ` : `<div style="background:#f5ede3;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--muted);text-align:center">
+    🌸 Mom hasn't submitted her answers yet
+  </div>`;
+
+  const kidCardsHtml = kidCards.length ? kidCards.map(card => `
+    <div class="bymom-card">
+      <div class="bymom-card-header" onclick="toggleByMomCard(${card.id})">
+        <div style="flex:1">
+          <div class="sub-name">${esc(card.respondent_name)}</div>
+          <div class="sub-meta">${new Date(card.submitted_at).toLocaleTimeString()}</div>
+        </div>
+        <button class="btn-delete" onclick="event.stopPropagation();deleteCard(${card.id})">Delete</button>
+        <span id="bymom-expand-${card.id}" style="color:var(--muted);font-size:18px;margin-left:6px">⌄</span>
+      </div>
+      <div class="bymom-card-body" id="bymom-body-${card.id}" style="display:none">
+        ${card.answers.map(a => `
+          <div class="bymom-qa">
+            <div class="bymom-q">${esc(a.question_text)} <span class="tag-badge ${a.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(a.tag)}</span></div>
+            <div class="bymom-a">${esc(a.answer_text)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('') : `<div style="color:var(--muted);font-size:13px;text-align:center;padding:12px">No kid/adult responses yet.</div>`;
+
+  const readAloudBtn = kidCards.length ? `
+    <button class="btn-readaloud" onclick="startReadAloud(${momId})">
+      📣 Read Aloud Mode for ${esc(momName)}${momCard ? ' (with Mom comparison)' : ''}
+    </button>
+  ` : '';
+
+  contentEl.innerHTML = `
+    ${readAloudBtn}
+    ${momCardHtml}
+    ${kidCards.length ? `<div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Family Responses</div>` : ''}
+    ${kidCardsHtml}
   `;
 }
 
@@ -1359,10 +1555,13 @@ function toggleByMomCard(id) {
 // ── READ ALOUD ──
 function startReadAloud(momId) {
   const mom = _adminMoms.find(m => m.id === momId);
-  _raMomName = mom ? mom.name : 'Mom';
-  _raCards   = _byMomCards;
-  _raCardIdx = 0;
-  _raQIdx    = 0;
+  _raMomName  = mom ? mom.name : 'Mom';
+  _raMomCard  = _byMomCards.find(c => c.respondent_type === 'mom') || null;
+  _raCards    = _byMomCards.filter(c => c.respondent_type !== 'mom');
+  _raCardIdx  = 0;
+  _raQIdx     = 0;
+  _raMomMode  = false;
+  _raMomQIdx  = 0;
   renderReadAloud();
   document.getElementById('ra-overlay').style.display = 'flex';
 }
@@ -1372,6 +1571,7 @@ function closeReadAloud() {
 }
 
 function renderReadAloud() {
+  if (_raMomMode) { renderMomReadAloud(); return; }
   const card  = _raCards[_raCardIdx];
   const ans   = card.answers[_raQIdx];
   const body  = document.getElementById('ra-body');
@@ -1395,13 +1595,13 @@ function renderReadAloud() {
 }
 
 function advanceReadAloud() {
+  if (_raMomMode) { advanceMomReadAloud(); return; }
   const card = _raCards[_raCardIdx];
   if (_raQIdx < card.answers.length - 1) {
     _raQIdx++;
     renderReadAloud();
     return;
   }
-  // End of this card
   if (_raCardIdx < _raCards.length - 1) {
     showNextPersonPrompt();
   } else {
@@ -1440,16 +1640,78 @@ function goToNextPerson() {
 function showReadAloudEnd() {
   const body = document.getElementById('ra-body');
   body.onclick = null;
-  body.innerHTML = `
-    <div class="ra-end">
-      <div style="font-size:56px;margin-bottom:16px">🎉</div>
-      <div class="ra-end-title">That's everyone!</div>
-      <div class="ra-end-sub">All answers for ${esc(_raMomName)} have been read.</div>
-      <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
-    </div>
-  `;
+  if (_raMomCard) {
+    body.innerHTML = `
+      <div class="ra-end">
+        <div style="font-size:56px;margin-bottom:16px">🌸</div>
+        <div class="ra-end-title">Now let's hear from Mom!</div>
+        <div class="ra-end-sub">Everyone has answered. Time to see what ${esc(_raMomName)} said!</div>
+        <button class="ra-next-person" onclick="enterMomReadAloud()">
+          What did Mom say? →
+        </button>
+      </div>
+    `;
+  } else {
+    body.innerHTML = `
+      <div class="ra-end">
+        <div style="font-size:56px;margin-bottom:16px">🎉</div>
+        <div class="ra-end-title">That's everyone!</div>
+        <div class="ra-end-sub">All answers for ${esc(_raMomName)} have been read.</div>
+        <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
+      </div>
+    `;
+  }
   document.getElementById('ra-q-counter').textContent   = '';
   document.getElementById('ra-person-counter').textContent = '';
+}
+
+function enterMomReadAloud() {
+  _raMomMode = true;
+  _raMomQIdx = 0;
+  renderMomReadAloud();
+}
+
+function renderMomReadAloud() {
+  if (!_raMomCard || !_raMomCard.answers.length) { closeReadAloud(); return; }
+  const ans  = _raMomCard.answers[_raMomQIdx];
+  const body = document.getElementById('ra-body');
+
+  document.getElementById('ra-who').innerHTML =
+    `<strong>${esc(_raMomName)}</strong>'s own answers 🌸`;
+  document.getElementById('ra-q-counter').textContent =
+    `Q${_raMomQIdx+1} of ${_raMomCard.answers.length}`;
+  document.getElementById('ra-person-counter').textContent = 'Mom';
+
+  body.onclick = advanceMomReadAloud;
+  body.innerHTML = `
+    <div class="ra-tag">
+      <span class="tag-badge ${ans.tag}">${tagEmoji(ans.tag)} ${tagLabel(ans.tag)}</span>
+    </div>
+    <div class="ra-question">${esc(ans.question_text)}</div>
+    <div class="ra-mom-label">🌸 MOM SAID</div>
+    <div class="ra-mom-answer">${esc(ans.answer_text)}</div>
+    <div class="ra-tap-hint">TAP TO ADVANCE</div>
+  `;
+}
+
+function advanceMomReadAloud() {
+  if (_raMomQIdx < _raMomCard.answers.length - 1) {
+    _raMomQIdx++;
+    renderMomReadAloud();
+  } else {
+    const body = document.getElementById('ra-body');
+    body.onclick = null;
+    body.innerHTML = `
+      <div class="ra-end">
+        <div style="font-size:56px;margin-bottom:16px">🎉</div>
+        <div class="ra-end-title">That's a wrap!</div>
+        <div class="ra-end-sub">All answers for ${esc(_raMomName)} have been read.</div>
+        <button class="ra-next-person" onclick="closeReadAloud()">✕ Close</button>
+      </div>
+    `;
+    document.getElementById('ra-q-counter').textContent   = '';
+    document.getElementById('ra-person-counter').textContent = '';
+  }
 }
 
 // ── QUESTIONS TAB ──
@@ -1470,6 +1732,7 @@ function renderQuestionsList() {
       <div class="q-num">${i+1}</div>
       <div class="q-content">
         <div class="q-item-text">${esc(q.text)}</div>
+        ${q.mom_text ? `<div class="q-item-placeholder" style="margin-top:3px">🌸 Mom: ${esc(q.mom_text)}</div>` : ''}
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
           <span class="tag-badge ${q.tag}" style="font-size:9px;padding:2px 8px">${tagEmoji(q.tag)} ${tagLabel(q.tag)}</span>
           ${q.placeholder ? `<span class="q-item-placeholder">${esc(q.placeholder)}</span>` : ''}
@@ -1490,7 +1753,10 @@ function editQuestion(id) {
   el.innerHTML = `
     <div class="q-num" style="padding-top:4px">${_adminQuestions.findIndex(x=>x.id===id)+1}</div>
     <div class="q-edit-form">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Kids version</div>
       <textarea class="q-edit-textarea" id="qedit-text-${id}">${esc(q.text)}</textarea>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sage-dark);margin-bottom:4px;margin-top:4px">🌸 Mom version</div>
+      <textarea class="q-edit-textarea" id="qedit-momtext-${id}" placeholder="Mom-facing version of the question…">${esc(q.mom_text||'')}</textarea>
       <div class="add-row">
         <select class="add-input" id="qedit-tag-${id}" style="flex:none;width:130px">
           <option value="funny"    ${q.tag==='funny'   ?'selected':''}>😄 Funny</option>
@@ -1508,33 +1774,36 @@ function editQuestion(id) {
 }
 
 async function saveQuestion(id) {
-  const text = document.getElementById('qedit-text-' + id)?.value.trim();
-  const tag  = document.getElementById('qedit-tag-' + id)?.value;
-  const ph   = document.getElementById('qedit-ph-' + id)?.value.trim();
-  const q    = _adminQuestions.find(q => q.id === id);
+  const text    = document.getElementById('qedit-text-' + id)?.value.trim();
+  const momText = document.getElementById('qedit-momtext-' + id)?.value.trim();
+  const tag     = document.getElementById('qedit-tag-' + id)?.value;
+  const ph      = document.getElementById('qedit-ph-' + id)?.value.trim();
+  const q       = _adminQuestions.find(q => q.id === id);
   if (!text) return;
   await aFetch('/api/admin/questions/' + id, {
     method:'PUT',
-    body: JSON.stringify({ text, tag, placeholder:ph, sort_order: q?.sort_order||0 })
+    body: JSON.stringify({ text, tag, placeholder:ph, sort_order: q?.sort_order||0, mom_text: momText })
   });
   const idx = _adminQuestions.findIndex(x => x.id === id);
-  if (idx >= 0) _adminQuestions[idx] = { ..._adminQuestions[idx], text, tag, placeholder:ph };
+  if (idx >= 0) _adminQuestions[idx] = { ..._adminQuestions[idx], text, tag, placeholder:ph, mom_text: momText };
   renderQuestionsList();
 }
 
 async function addQuestion() {
-  const text = document.getElementById('new-q-text').value.trim();
-  const tag  = document.getElementById('new-q-tag').value;
-  const ph   = document.getElementById('new-q-placeholder').value.trim();
+  const text    = document.getElementById('new-q-text').value.trim();
+  const momText = document.getElementById('new-q-momtext').value.trim();
+  const tag     = document.getElementById('new-q-tag').value;
+  const ph      = document.getElementById('new-q-placeholder').value.trim();
   if (!text) return;
   const sort_order = _adminQuestions.length;
   const res  = await aFetch('/api/admin/questions', {
-    method:'POST', body: JSON.stringify({ text, tag, placeholder:ph, sort_order })
+    method:'POST', body: JSON.stringify({ text, tag, placeholder:ph, sort_order, mom_text: momText })
   });
   const newQ = await res.json();
   _adminQuestions.push(newQ);
   renderQuestionsList();
   document.getElementById('new-q-text').value = '';
+  document.getElementById('new-q-momtext').value = '';
   document.getElementById('new-q-placeholder').value = '';
 }
 

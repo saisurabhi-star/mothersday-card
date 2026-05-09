@@ -25,16 +25,16 @@ async function query(sql, params = []) {
 
 async function seedDefaults() {
   const questions = [
-    ['If Mom had an age based on how she acts, what would it be and why?', 'funny', 'e.g. She acts 25 when music comes on.', 0],
-    ['What phrase does Mom say so much you hear it in your sleep?', 'funny', 'e.g. Because I said so!', 1],
-    ['What would Mom spend $1000 on if she had to spend it TODAY?', 'funny', 'e.g. Shoes. Definitely shoes.', 2],
-    ["What is Mom's go-to excuse to get out of something?", 'funny', "e.g. She says she's tired", 3],
-    ['What does Mom care about most?', 'sweet', "e.g. That we're all happy and healthy", 4],
-    ["What do you think mom hope's for you most?", 'sweet', 'e.g. She wants me to be a doctor lol', 5],
-    ['What is something Mom does that you hope to do someday?', 'sweet', 'e.g. The way she always shows up for people', 6],
-    ["What is Mom's guilty pleasure?", 'wildcard', 'e.g. Watching Reels', 7],
-    ["What is something Mom tries her best at, even if she knows she is not good at it?", 'wildcard', 'e.g. Parallel parking', 8],
-    ['What would Mom do with 24 hours completely alone?', 'wildcard', 'e.g. Sleep the entire time', 9],
+    ['If Mom had an age based on how she acts, what would it be and why?', 'funny', 'e.g. She acts 25 when music comes on.', 0, 'If you had an age based on how you act, what would it be — and why?'],
+    ['What phrase does Mom say so much you hear it in your sleep?', 'funny', 'e.g. Because I said so!', 1, 'What phrase do you say all the time — even when you don\'t realize it?'],
+    ['What would Mom spend $1000 on if she had to spend it TODAY?', 'funny', 'e.g. Shoes. Definitely shoes.', 2, 'What would YOU spend $1000 on if you had to spend it TODAY?'],
+    ["What is Mom's go-to excuse to get out of something?", 'funny', "e.g. She says she's tired", 3, "What's YOUR go-to excuse to get out of something?"],
+    ['What does Mom care about most?', 'sweet', "e.g. That we're all happy and healthy", 4, 'What do YOU care about most in life?'],
+    ["What do you think mom hope's for you most?", 'sweet', 'e.g. She wants me to be a doctor lol', 5, 'What do you hope for your kids most?'],
+    ['What is something Mom does that you hope to do someday?', 'sweet', 'e.g. The way she always shows up for people', 6, 'What is something you do that you hope your kids carry forward someday?'],
+    ["What is Mom's guilty pleasure?", 'wildcard', 'e.g. Watching Reels', 7, 'What is YOUR guilty pleasure?'],
+    ["What is something Mom tries her best at, even if she knows she is not good at it?", 'wildcard', 'e.g. Parallel parking', 8, "What's something you try your best at, even when you know you're not perfect at it?"],
+    ['What would Mom do with 24 hours completely alone?', 'wildcard', 'e.g. Sleep the entire time', 9, 'What would YOU do with 24 hours completely alone?'],
   ];
   const moms = [
     "Aasvi's Mom", "Jaasvi & Twisha's Mom", "Navya and Geetu's Mom",
@@ -47,9 +47,9 @@ async function seedDefaults() {
 
   const qCount = await query('SELECT COUNT(*) as c FROM questions');
   if (parseInt(qCount.rows[0].c) === 0) {
-    for (const [text, tag, placeholder, sort_order] of questions) {
-      await query('INSERT INTO questions (text,tag,placeholder,sort_order) VALUES ($1,$2,$3,$4)',
-        [text, tag, placeholder, sort_order]);
+    for (const [text, tag, placeholder, sort_order, mom_text] of questions) {
+      await query('INSERT INTO questions (text,tag,placeholder,sort_order,mom_text) VALUES ($1,$2,$3,$4,$5)',
+        [text, tag, placeholder, sort_order, mom_text || '']);
     }
   }
 
@@ -107,6 +107,8 @@ async function initDb() {
       value TEXT NOT NULL
     );
   `);
+  await query(`ALTER TABLE cards ADD COLUMN IF NOT EXISTS respondent_type TEXT DEFAULT 'kid'`);
+  await query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS mom_text TEXT DEFAULT ''`);
   await seedDefaults();
   console.log('✅ Database initialized');
 }
@@ -145,22 +147,41 @@ app.get('/api/check-user', async (req, res) => {
   res.json({ alreadySubmitted: r.rows.length > 0 });
 });
 
+app.get('/api/check-mom', async (req, res) => {
+  const { momId } = req.query;
+  if (!momId) return res.status(400).json({ error: 'momId required' });
+  const r = await query(
+    "SELECT id FROM cards WHERE mom_id=$1 AND respondent_type='mom' AND is_complete=true",
+    [parseInt(momId)]
+  );
+  res.json({ alreadySubmitted: r.rows.length > 0 });
+});
+
 app.post('/api/submit', async (req, res) => {
-  const { respondentName, momId, answers } = req.body;
+  const { respondentName, momId, answers, respondentType } = req.body;
   if (!respondentName || !momId || !answers) return res.status(400).json({ error: 'Missing data' });
+  const rType = respondentType === 'mom' ? 'mom' : 'kid';
 
   const open = await getSetting('submissions_open');
   if (open !== 'true') return res.status(403).json({ error: 'Submissions are closed' });
 
-  const existing = await query(
-    'SELECT id FROM cards WHERE LOWER(respondent_name)=LOWER($1) AND is_complete=true',
-    [respondentName.trim()]
-  );
-  if (existing.rows.length > 0) return res.status(409).json({ error: 'Already submitted' });
+  if (rType === 'mom') {
+    const existingMom = await query(
+      "SELECT id FROM cards WHERE mom_id=$1 AND respondent_type='mom' AND is_complete=true",
+      [parseInt(momId)]
+    );
+    if (existingMom.rows.length > 0) return res.status(409).json({ error: 'Mom already submitted answers' });
+  } else {
+    const existing = await query(
+      'SELECT id FROM cards WHERE LOWER(respondent_name)=LOWER($1) AND is_complete=true',
+      [respondentName.trim()]
+    );
+    if (existing.rows.length > 0) return res.status(409).json({ error: 'Already submitted' });
+  }
 
   const cardRes = await query(
-    'INSERT INTO cards (respondent_name, mom_id, is_complete) VALUES ($1,$2,true) RETURNING id',
-    [respondentName.trim(), parseInt(momId)]
+    'INSERT INTO cards (respondent_name, mom_id, is_complete, respondent_type) VALUES ($1,$2,true,$3) RETURNING id',
+    [respondentName.trim(), parseInt(momId), rType]
   );
   const cardId = cardRes.rows[0].id;
 
@@ -273,17 +294,17 @@ app.get('/api/admin/questions', requireAdmin, async (req, res) => {
   res.json(r.rows);
 });
 app.post('/api/admin/questions', requireAdmin, async (req, res) => {
-  const { text, tag, placeholder, sort_order } = req.body;
+  const { text, tag, placeholder, sort_order, mom_text } = req.body;
   const r = await query(
-    'INSERT INTO questions (text,tag,placeholder,sort_order) VALUES ($1,$2,$3,$4) RETURNING *',
-    [text, tag || 'funny', placeholder || '', sort_order || 0]
+    'INSERT INTO questions (text,tag,placeholder,sort_order,mom_text) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+    [text, tag || 'funny', placeholder || '', sort_order || 0, mom_text || '']
   );
   res.json(r.rows[0]);
 });
 app.put('/api/admin/questions/:id', requireAdmin, async (req, res) => {
-  const { text, tag, placeholder, sort_order } = req.body;
-  await query('UPDATE questions SET text=$1,tag=$2,placeholder=$3,sort_order=$4 WHERE id=$5',
-    [text, tag || 'funny', placeholder || '', sort_order || 0, req.params.id]);
+  const { text, tag, placeholder, sort_order, mom_text } = req.body;
+  await query('UPDATE questions SET text=$1,tag=$2,placeholder=$3,sort_order=$4,mom_text=$5 WHERE id=$6',
+    [text, tag || 'funny', placeholder || '', sort_order || 0, mom_text || '', req.params.id]);
   res.json({ success: true });
 });
 app.delete('/api/admin/questions/:id', requireAdmin, async (req, res) => {
