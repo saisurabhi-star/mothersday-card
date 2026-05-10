@@ -1472,7 +1472,7 @@
       <div class="splash-eyebrow">🌸 &nbsp; Happy Mother's Day &nbsp; 🌸</div>
       <div id="mom-splash-name" class="splash-name"></div>
       <div class="splash-tagline">We love you more than<br>words can say 💕</div>
-      <button class="splash-btn" onclick="beginCard()">Let's Go! 🎉</button>
+      <button class="splash-btn" onclick="onSplashContinue()">Let's Go! 🎉</button>
     </div>
   </div>
 
@@ -1916,6 +1916,7 @@
       }
 
       const mom = config.moms.find(m => m.id === selectedMomId);
+      _splashOnContinue = beginCard;
       showMomSplash(mom);
     }
 
@@ -1983,7 +1984,18 @@
       showScreen('mom-splash');
     }
 
+    let _splashOnContinue = null;
+
+    function onSplashContinue() {
+      if (_splashOnContinue) {
+        const fn = _splashOnContinue;
+        _splashOnContinue = null;
+        fn();
+      }
+    }
+
     function beginCard() {
+      _splashOnContinue = null;
       renderQuestionScreen();
       showScreen('question');
     }
@@ -2362,13 +2374,13 @@
       document.querySelectorAll('.closed-mom-pill').forEach(p => p.classList.remove('active'));
       const btn = event.target;
       btn.classList.add('active');
+      const origText = btn.textContent;
       btn.textContent = '⏳ Loading…';
 
       const res = await fetch('/api/party/' + momId);
-      btn.textContent = btn.textContent.replace('⏳ Loading…', momDisplayName(config.moms.find(m => m.id === momId)));
+      btn.textContent = origText;
       if (!res.ok) { alert('Could not load responses.'); return; }
       const cards = await res.json();
-
       if (!cards.length) { alert('No responses submitted for this mom yet.'); return; }
 
       const mom = config.moms.find(m => m.id === momId);
@@ -2377,8 +2389,12 @@
       _raQuestions = buildRaQuestions(cards);
       _raQIdx = 0;
       if (!_raQuestions.length) { alert('No responses for this mom yet.'); return; }
-      renderReadAloud();
-      document.getElementById('ra-overlay').style.display = 'flex';
+
+      _splashOnContinue = () => {
+        renderReadAloud();
+        document.getElementById('ra-overlay').style.display = 'flex';
+      };
+      showMomSplash(mom);
     }
 
     function closeReadAloud() {
